@@ -22,13 +22,14 @@ import (
 var (
 	count        = 0
 	exitProg     = false
-	tabCos       [256]uint8
+	tabCos       [256]uint16
 	taille_x     uint8  = 80
 	taille_y     uint8  = 50
 	window_x     uint16 = 320
 	window_y     uint16 = 200
-	heightBitmap [128 * 128]uint8
-	angle        uint8         = 0x30
+	heightBitmap [128 * 128]byte
+	height       uint16
+	angle        byte          = 0x30
 	x            uint16        = 0x4000
 	y            uint16        = 0x4000
 	RgbCPC32     color.Palette = []color.Color{
@@ -73,7 +74,7 @@ var (
 
 func initTabCos() {
 	for i := 0; i < 256; i++ {
-		tabCos[i] = uint8(math.Cos(float64(i)/40.7436654315) * 256)
+		tabCos[i] = uint16(math.Cos(float64(i)/40.7436654315) * 256)
 	}
 }
 
@@ -92,7 +93,7 @@ func initHeightBitmap() {
 	for x0 := 0; x0 < h.Bounds().Max.X; x0++ {
 		for y0 := 0; y0 < h.Bounds().Max.Y; y0++ {
 			r, g, b, _ := h.At(x0, y0).RGBA()
-			fmt.Fprintf(os.Stdout, "x:%d,y:%d,index:%d,value:%.2x\n", x0, y0, x0+(128*y0), uint8(r>>8+g>>8+b>>8))
+			//	fmt.Fprintf(os.Stdout, "x:%d,y:%d,index:%d,value:%.2x\n", x0, y0, x0+(128*y0), uint8(r>>8+g>>8+b>>8))
 			heightBitmap[x0+(128*y0)] = uint8(r>>8 + g>>8 + b>>8)
 		}
 	}
@@ -110,46 +111,55 @@ func drawView(filename string) {
 	draw.Draw(im, im.Bounds(), &image.Uniform{RgbCPC32[0]}, image.ZP, draw.Src)
 	var col color.Color
 	memBitmap = make([]byte, uint16(taille_x)*uint16(taille_y))
+
 	p := ((y >> 1) & 0x3F80) + (x >> 9)
-	Height := taille_y + heightBitmap[p]
+	height = uint16(taille_y + heightBitmap[p]) // Hauteur à la position x,y
+	height += 50
+
 	var sX uint8
 	for sX = 0; sX < taille_x; sX++ {
 		a := angle + sX - taille_x/2
-		deltax := tabCos[a&0xFF]
-		deltay := tabCos[(a+64)&0xFF]
-		var minY uint16
-		minY = uint16(taille_y)
+		deltax := tabCos[a]
+		a += 64
+		deltay := tabCos[a]
+		minY := uint16(taille_y)
 		tx := x
 		ty := y
-		var d uint16
-		for d = 4; d < 256; d += 4 {
-			tx += uint16(deltax)
-			ty += uint16(deltay)
-			o := ((ty >> 1) & 0x3F80) + (tx >> 9)
-			c := heightBitmap[o]
-			hl := Height - c
+		clear := false
+		for d := 1; d < 64; d++ {
+			tx += deltax
+			ty += deltay
+			o := ((ty & 0x7F00) >> 1) + (tx >> 9)
+			c := heightBitmap[o] >> 4 // Hauteur à tracer
+			hl := height - uint16(c)
 			var y1 uint16
-
 			if hl > 0 {
-				y1 = uint16(hl<<6) / d
+				y1 = (hl << 3) / uint16(d)
 			}
 
 			if y1 < uint16(minY) {
-				for y0 := y1; y0 < uint16(minY); y0++ {
-					index := uint16(sX) + (uint16(taille_x) * y0)
-					fmt.Fprintf(os.Stdout, "pos:#%.4x index palette:%d\n", index, byte(c>>4))
-					memBitmap[index] = byte(c >> 4)
-					col = RgbCPC32[int(c>>4)]
+				if !clear {
+					clear = true
+					col = RgbCPC32[0]
+					var y0 uint16
+					for y0 = 0; y0 < minY; y0++ {
+						im.Set(int(sX), int(y0), col)
+						memBitmap[uint16(sX)+(uint16(taille_x)*y0)] = 0
+					}
+				}
+
+				var y0 uint16
+				for y0 = y1; y0 < minY; y0++ {
+					col = RgbCPC32[c]
 					im.Set(int(sX), int(y0), col)
-					/*for px := 1; px <= int(window_x/uint16(taille_x)); px++ {
-						for py := 1; py <= int(window_y/uint16(taille_y)); py++ {
-							im.Set(int(sX)*px, int(y0)*py, col)
-						}
-					}*/
+					memBitmap[uint16(sX)+(uint16(taille_x)*y0)] = c
 				}
 
 				minY = y1
-				if minY != 1 {
+				/*	if minY > 1 {
+					break
+				}*/
+				if minY <= 0 {
 					break
 				}
 			}
@@ -182,7 +192,7 @@ func KeyDown(key *fyne.KeyEvent) {
 	case fyne.KeyLeft:
 		angle -= 4
 	}
-	filename := fmt.Sprintf("%.3d.png", count)
+	filename := fmt.Sprintf("images/%.3d.png", count)
 	drawView(filename)
 	setImage(filename)
 	count++
@@ -192,7 +202,7 @@ var w fyne.Window
 
 func setImage(filename string) {
 	im := canvas.NewImageFromFile(filename)
-	im.FillMode = canvas.ImageFillContain
+	//	im.FillMode = canvas.ImageFillStretch
 	scroll := widget.NewScrollContainer(im)
 	scroll.Resize(fyne.NewSize(int(window_x), int(window_y)))
 	w.SetContent(scroll)
@@ -204,8 +214,8 @@ func main() {
 	w = a.NewWindow("Voxel")
 	initTabCos()
 	initHeightBitmap()
-	drawView(fmt.Sprintf("000.png"))
-	setImage("000.png")
+	drawView(fmt.Sprintf("images/000.png"))
+	setImage("images/000.png")
 	w.Canvas().SetOnTypedKey(KeyDown)
 	w.Resize(fyne.NewSize(int(window_x), int(window_y)))
 	w.ShowAndRun()
