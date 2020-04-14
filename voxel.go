@@ -36,12 +36,12 @@ var (
 		constants.Black.Color,
 		constants.Blue.Color,
 		constants.BrightBlue.Color,
-		constants.Red.Color,
+		constants.Magenta.Color,
 		constants.BrightRed.Color,
 		constants.Magenta.Color,
-		constants.Purple.Color,
-		constants.Green.Color,
-		constants.BrightBlue.Color,
+		constants.Mauve.Color,
+		constants.Red.Color,
+		constants.BrightRed.Color,
 		constants.Yellow.Color,
 		constants.White.Color,
 		constants.PastelMagenta.Color,
@@ -114,7 +114,15 @@ func drawView(filename string) {
 
 	p := ((y >> 1) & 0x3F80) + (x >> 9)
 	height = uint16(taille_y + heightBitmap[p]) // Hauteur à la position x,y
-	height += 50
+	fmt.Fprintf(os.Stdout, "height:%d\n", height)
+	if height < 100 {
+		height += 50
+	}
+	if height > 200 {
+		height -= 50
+	}
+	//	height += 50
+	//height = 150
 
 	var sX uint8
 	for sX = 0; sX < taille_x; sX++ {
