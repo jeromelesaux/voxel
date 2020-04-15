@@ -19,6 +19,10 @@ import (
 	"github.com/nfnt/resize"
 )
 
+//
+// concat results
+// ffmpeg -i images/%03d.png -vcodec mpeg4 test.mp4
+//
 var (
 	count        = 0
 	exitProg     = false
@@ -115,11 +119,12 @@ func drawView(filename string) {
 	p := ((y >> 1) & 0x3F80) + (x >> 9)
 	height = uint16(taille_y + heightBitmap[p]) // Hauteur à la position x,y
 	fmt.Fprintf(os.Stdout, "height:%d\n", height)
-	if height < 100 {
-		height += 50
+	if height < 150 {
+		height += 150 - height + 10
+		//height += 50
 	}
-	if height > 200 {
-		height -= 50
+	if height > 250 {
+		height -= 250 - height + 10
 	}
 	//	height += 50
 	//height = 150
