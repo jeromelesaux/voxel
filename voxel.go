@@ -11,21 +11,18 @@ import (
 
 	"golang.org/x/image/bmp"
 
-	"fyne.io/fyne"
-	"fyne.io/fyne/app"
-	"fyne.io/fyne/canvas"
-	"fyne.io/fyne/widget"
+	"fyne.io/fyne/v2"
+	"fyne.io/fyne/v2/app"
+	"fyne.io/fyne/v2/canvas"
+	"fyne.io/fyne/v2/container"
 	"github.com/jeromelesaux/martine/constants"
 	"github.com/nfnt/resize"
 )
 
-//
 // concat results
 // ffmpeg -i images/%03d.png -vcodec mpeg4 test.mp4
-//
 var (
 	count        = 0
-	exitProg     = false
 	tabCos       [256]uint16
 	taille_x     uint8  = 80
 	taille_y     uint8  = 50
@@ -101,7 +98,6 @@ func initHeightBitmap() {
 			heightBitmap[x0+(128*y0)] = uint8(r>>8 + g>>8 + b>>8)
 		}
 	}
-	return
 }
 
 func drawView(filename string) {
@@ -112,7 +108,7 @@ func drawView(filename string) {
 	}
 	defer f.Close()
 	im := image.NewNRGBA(image.Rect(0, 0, int(taille_x), int(taille_y)))
-	draw.Draw(im, im.Bounds(), &image.Uniform{RgbCPC32[0]}, image.ZP, draw.Src)
+	draw.Draw(im, im.Bounds(), &image.Uniform{RgbCPC32[0]}, image.Point{X: 0, Y: 0}, draw.Src)
 	var col color.Color
 	memBitmap = make([]byte, uint16(taille_x)*uint16(taille_y))
 
@@ -121,13 +117,13 @@ func drawView(filename string) {
 	fmt.Fprintf(os.Stdout, "height:%d\n", height)
 	if height < 150 {
 		height += 150 - height + 10
-		//height += 50
+		// height += 50
 	}
 	if height > 250 {
 		height -= 250 - height + 10
 	}
 	//	height += 50
-	//height = 150
+	// height = 150
 
 	var sX uint8
 	for sX = 0; sX < taille_x; sX++ {
@@ -190,7 +186,6 @@ func drawView(filename string) {
 }
 
 func KeyDown(key *fyne.KeyEvent) {
-
 	switch key.Name {
 	case fyne.KeyEscape:
 		os.Exit(1)
@@ -216,20 +211,21 @@ var w fyne.Window
 func setImage(filename string) {
 	im := canvas.NewImageFromFile(filename)
 	//	im.FillMode = canvas.ImageFillStretch
-	scroll := widget.NewScrollContainer(im)
-	scroll.Resize(fyne.NewSize(int(window_x), int(window_y)))
+	scroll := container.NewScroll(im)
+	scroll.Resize(fyne.NewSize(float32(window_x), float32(window_y)))
 	w.SetContent(scroll)
-
 }
 
 func main() {
 	a := app.New()
 	w = a.NewWindow("Voxel")
+	os.RemoveAll("images")
+	os.Mkdir("images", 0o755)
 	initTabCos()
 	initHeightBitmap()
-	drawView(fmt.Sprintf("images/000.png"))
+	drawView("images/000.png")
 	setImage("images/000.png")
 	w.Canvas().SetOnTypedKey(KeyDown)
-	w.Resize(fyne.NewSize(int(window_x), int(window_y)))
+	w.Resize(fyne.NewSize(float32(window_x), float32(window_y)))
 	w.ShowAndRun()
 }
